@@ -6,4 +6,4 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 python3 scripts/landing/add_images.py
 firebase deploy --only hosting --project casa-brolin
-echo "Gallery published. Remember to commit and push the changes to GitHub."
+echo "Gallery published."
