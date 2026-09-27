@@ -6,4 +6,5 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 python3 scripts/landing/add_images.py
 firebase deploy --only hosting --project casa-brolin
-echo "Gallery published."
+git add -A && git commit -qm "Landing gallery: add photos" && git push -q
+echo "Gallery published and pushed to GitHub."

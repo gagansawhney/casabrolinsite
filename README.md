@@ -20,7 +20,7 @@ Publish website changes:
 
 ```bash
 firebase deploy --only hosting --project casa-brolin
-git add -A && git commit -m "Describe the change"   # local history only, no GitHub
+git add -A && git commit -m "Describe the change" && git push
 ```
 
 Add photos to the landing page gallery:
@@ -48,6 +48,6 @@ See `DNS-ROLLBACK.md`.
 
 ## Backups
 
-There is no GitHub copy by choice. If this folder is lost: the pages can be re-downloaded
-from the live site (it is fully static), and the deployed `functions/` source can be
-retrieved from Cloud Functions (each function's source zip is kept by Google).
+GitHub: https://github.com/gagansawhney/casabrolinsite (private). `main` mirrors what is
+deployed; push after every deploy. The branch `old-landingpage` holds the landing page's
+history from before the move (last updated Sep 2025).
