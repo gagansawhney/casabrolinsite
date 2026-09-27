@@ -1,0 +1,10 @@
+rules_version = '2';
+// Leads are written only by the cf7feedback Cloud Function (Admin SDK bypasses rules).
+// No browser access to anything.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

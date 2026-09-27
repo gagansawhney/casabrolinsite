@@ -1,0 +1,374 @@
+{
+  "hosting": {
+    "public": "public",
+    "cleanUrls": false,
+    "trailingSlash": true,
+    "ignore": [
+      "firebase.json",
+      "**/.*"
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(css|js|woff|woff2|ttf|eot|svg|png|jpg|jpeg|webp|gif|ico)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=86400"
+          }
+        ]
+      }
+    ],
+    "redirects": [
+      {
+        "source": "/apartment-item{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/3-rooms-apartments-2{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/3-rooms-apartments-4{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/3-rooms-apartments{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/4-rooms-apartments-2{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/4-rooms-apartments-3{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/4-rooms-apartments{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/5-rooms-apartments-2{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/5-rooms-apartments-3{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/5-rooms-apartments{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/apartment-block{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/apartment{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/apartments{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/business-space{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/double-height{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/duplex{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/east-complex{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/houses{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/lux-apartment{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/modern-home{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/modern-studio{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/modern-suite{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/page/2{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/page/3{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/penthouse{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/simplex{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/south-complex{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/studio{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/apartment-item/west-complex{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/blog-left-sidebar{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/blog-no-sidebar{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/blog-right-sidebar{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/camden{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/chelsea{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/coming-soon{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/elementor-6{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/faq{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/feature-bellow{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/fulham{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/get-in-touch{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/greenwich{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/headings{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/info-adjacent{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/info-bellow{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/lambeth{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/privacy-policy{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/designed-with-style{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/ino{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/mar{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/new-standard{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/project-complex-copy-copy{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/project-complex-copy{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/project-complex{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/san{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/villa-1{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-item/villa-2{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/property-slider{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/southwark{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/villa-aguada{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/villa-gaia{,/**}",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/villa-thea{,/**}",
+        "destination": "/",
+        "type": 301
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/wp-json/contact-form-7/v1/contact-forms/*/feedback",
+        "function": {
+          "functionId": "cf7feedback",
+          "region": "asia-south1"
+        }
+      },
+      {
+        "source": "/landing/cocoverde/assets/api/verify_otp.php",
+        "function": {
+          "functionId": "verifyOtp",
+          "region": "asia-south1"
+        }
+      }
+    ]
+  },
+  "emulators": {
+    "hosting": {
+      "port": 5050
+    },
+    "functions": {
+      "port": 5051
+    },
+    "firestore": {
+      "port": 5052
+    },
+    "ui": {
+      "enabled": false
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs22"
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

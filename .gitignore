@@ -1,0 +1,12 @@
+# local-only
+archive/
+node_modules/
+.firebase/
+*.log
+.DS_Store
+functions/.env*
+functions/.secret*
+functions/*.local
+.claude/
+landing-media/pending/*
+!landing-media/pending/.gitkeep

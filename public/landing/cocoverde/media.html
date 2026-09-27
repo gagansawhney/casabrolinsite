@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Cormorant+Garamond:wght@400;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway:wght@400;700&display=swap">
+    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.css?v=dev" type="text/css">
+    <link rel="stylesheet" href="assets/fonts/font-awesome.css?v=dev" type="text/css">
+    <link rel="stylesheet" href="assets/css/style.css?v=4">
+
+    <title>Coco Verde Media Gallery</title>
+</head>
+
+<body>
+    <div class="page-wrapper media-page" id="page-top">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+            <a class="navbar-brand" href="index.html">
+                <img src="assets/img/logo.webp" alt="Coco Verde">
+            </a>
+            <div class="ml-auto media-nav">
+                <a href="index.html" class="btn btn-link">Home</a>
+                <a href="index.html#contact" class="btn btn-contact">Enquire Now</a>
+            </div>
+        </nav>
+
+        <main id="content" class="media-content">
+            <section class="block media-hero">
+                <div class="container">
+                    <div class="block__wrapper">
+                        <div class="media-hero__intro">
+                            <p>Coco Verde Progress Gallery</p>
+                            <h1>Actuals and Renders</h1>
+                        </div>
+                        <div class="media-tabs" role="tablist" aria-label="Media gallery tabs">
+                            <button class="media-tabs__button is-active" type="button" data-tab="actuals" role="tab" aria-selected="true">Actuals</button>
+                            <button class="media-tabs__button" type="button" data-tab="renders" role="tab" aria-selected="false">Renders</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="block media-library">
+                <div class="container">
+                    <div id="actuals-panel" class="media-panel is-active" role="tabpanel"></div>
+                    <div id="renders-panel" class="media-panel" role="tabpanel"></div>
+                </div>
+                <div class="background-wrapper" data-background-color="#f9f9f9">
+                    <div class="background--image opacity-10 background--repeat-repeat">
+                        <img src="assets/img/pattern-topo.png" alt="">
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="assets/js/gallery-data.js?v=2"></script>
+    <script src="assets/js/gallery.js?v=4"></script>
+</body>
+
+</html>
