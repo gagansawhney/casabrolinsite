@@ -108,6 +108,8 @@ exports.cf7feedback = onRequest(
       userAgent: req.get("user-agent") || "",
       ip: (req.get("x-forwarded-for") || "").split(",")[0].trim(),
       createdAt: FieldValue.serverTimestamp(),
+      // set by /_static/otp-forms.js once the visitor passed the MSG91 phone OTP
+      otpVerified: Boolean((f.otp_access_token || "").trim()),
     };
     const hash = crypto.createHash("md5").update(JSON.stringify(lead) + Date.now()).digest("hex");
 
