@@ -245,11 +245,6 @@
         "type": 301
       },
       {
-        "source": "/privacy-policy{,/**}",
-        "destination": "/",
-        "type": 301
-      },
-      {
         "source": "/property-item{,/**}",
         "destination": "/",
         "type": 301
