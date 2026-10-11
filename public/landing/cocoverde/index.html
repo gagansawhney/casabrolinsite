@@ -93,7 +93,13 @@
             font-size: 30px; line-height: 1; font-weight: 400; box-shadow: 0 1px 6px rgba(0,0,0,.35);
         }
         #modal-feature .modal-header .close:hover, #modal-feature .modal-header .close:focus { background: #000; color: #fff; opacity: 1; }
-        #modal-feature .modal-header .close span { display: block; margin-top: -3px; }
+        /* Draw the cross with two bars so it sits exactly in the middle; a text "×" sits off-centre in most fonts. */
+        #modal-feature .modal-header .close span { display: none; }
+        #modal-feature .modal-header .close::before, #modal-feature .modal-header .close::after {
+            content: ""; position: absolute; top: 50%; left: 50%; width: 18px; height: 2px; background: #fff; border-radius: 1px;
+        }
+        #modal-feature .modal-header .close::before { transform: translate(-50%, -50%) rotate(45deg); }
+        #modal-feature .modal-header .close::after { transform: translate(-50%, -50%) rotate(-45deg); }
         #modal-feature .modal__title { padding-right: 64px; }
         #modal-feature .modal-feature__footer { border-top: 1px solid #e6e6e6; padding: 16px 20px 20px; justify-content: center; clear: both; }
         #modal-feature .modal-feature__close-end {
