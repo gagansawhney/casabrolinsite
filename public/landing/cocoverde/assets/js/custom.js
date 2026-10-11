@@ -328,6 +328,8 @@ var lpSid = (function(){
     }
     return id;
 })();
+// Tag the Clarity recording with the same visitor id, so a recording can be matched to the funnel log.
+try { if (typeof window.clarity === 'function') window.clarity('set', 'lp_sid', lpSid); } catch(_){}
 function lpEvent(name, detail, form){
     try {
         if (lpSent[name]) return;
