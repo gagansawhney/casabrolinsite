@@ -59,6 +59,20 @@
 
     <title>Housing - Real Estate Landing Page</title>
 
+    <!-- iPhones zoom the page when a text box under 16px is tapped; keep form text at 16px on phones. id: iphone-form-zoom -->
+    <style>
+        @media (max-width: 767px) {
+            #hero .hero__caption #form-hero .form-control, #form-contact .form-control { font-size: 16px !important; min-height: 44px; height: 44px; }
+            #form-hero-cc, #form-contact-cc { min-width: 52px; max-width: 52px !important; padding-left: 6px !important; padding-right: 2px !important; }
+            /* Give the phone number room for all ten digits: name 40%, phone 60% on the first row. */
+            #hero .hero__caption #form-hero > .form-row:first-child > .form-group.col-md-6:first-child,
+            #form-contact > .form-row:first-child > .form-group.col-md-6:first-child { width: 40%; flex: 0 0 40%; max-width: 40%; }
+            #hero .hero__caption #form-hero > .form-row:first-child > .form-group.col-md-6:last-child,
+            #form-contact > .form-row:first-child > .form-group.col-md-6:last-child { width: 60%; flex: 0 0 60%; max-width: 60%; }
+            #form-hero-phone, #form-contact-phone { padding-left: 10px; padding-right: 6px; min-width: 0; }
+            #hero .hero__caption #form-hero #form-hero-submit, #form-contact-submit { min-height: 46px; font-size: 16px; }
+        }
+    </style>
     <!-- Microsoft Clarity: session recordings and heatmaps -->
     <script type="text/javascript">
         (function(c,l,a,r,i,t,y){
