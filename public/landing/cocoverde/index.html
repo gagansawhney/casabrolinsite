@@ -85,6 +85,22 @@
         #form-contact #form-contact-submit:hover, #form-contact #form-contact-submit:active { background-color: #f3c59b !important; border-color: #f3c59b !important; }
         #hero .hero__caption #form-hero #form-hero-submit:disabled,
         #form-contact #form-contact-submit:disabled { opacity: .55; }
+        /* Villa pop-up: a close button big enough to tap, and a second Close at the end. id: villa-popup-close */
+        #modal-feature .modal-header .close {
+            width: 44px; height: 44px; right: 10px; top: 10px; padding: 0; margin: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: #1c1c1c; color: #fff; border-radius: 50%; opacity: 1; text-shadow: none;
+            font-size: 30px; line-height: 1; font-weight: 400; box-shadow: 0 1px 6px rgba(0,0,0,.35);
+        }
+        #modal-feature .modal-header .close:hover, #modal-feature .modal-header .close:focus { background: #000; color: #fff; opacity: 1; }
+        #modal-feature .modal-header .close span { display: block; margin-top: -3px; }
+        #modal-feature .modal__title { padding-right: 64px; }
+        #modal-feature .modal-feature__footer { border-top: 1px solid #e6e6e6; padding: 16px 20px 20px; justify-content: center; clear: both; }
+        #modal-feature .modal-feature__close-end {
+            width: 100%; min-height: 48px; font-size: 16px; font-weight: 600;
+            background: #1c1c1c; color: #fff; border: 1px solid #1c1c1c; border-radius: 4px;
+        }
+        #modal-feature .modal-feature__close-end:hover, #modal-feature .modal-feature__close-end:focus { background: #000; color: #fff; }
         /* Email was removed from the forms; the message box spans the whole row at every width. */
         #hero .hero__caption #form-hero > .form-row.align-items-stretch > .form-group,
         #form-contact > .form-row.align-items-stretch > .form-group { width: 100%; flex: 0 0 100%; max-width: 100%; }
@@ -617,6 +633,9 @@
                     <!--end float-right-->
                 </div>
                 <!--end modal-body-->
+                <div class="modal-footer modal-feature__footer">
+                    <button type="button" class="btn modal-feature__close-end" data-dismiss="modal">Close</button>
+                </div>
             </div>
             <!--end modal-content-->
         </div>
