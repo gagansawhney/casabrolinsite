@@ -64,14 +64,21 @@
         @media (max-width: 767px) {
             #hero .hero__caption #form-hero .form-control, #form-contact .form-control { font-size: 16px !important; min-height: 44px; height: 44px; }
             #form-hero-cc, #form-contact-cc { min-width: 52px; max-width: 52px !important; padding-left: 6px !important; padding-right: 2px !important; }
-            /* Give the phone number room for all ten digits: name 40%, phone 60% on the first row. */
-            #hero .hero__caption #form-hero > .form-row:first-child > .form-group.col-md-6:first-child,
-            #form-contact > .form-row:first-child > .form-group.col-md-6:first-child { width: 40%; flex: 0 0 40%; max-width: 40%; }
-            #hero .hero__caption #form-hero > .form-row:first-child > .form-group.col-md-6:last-child,
-            #form-contact > .form-row:first-child > .form-group.col-md-6:last-child { width: 60%; flex: 0 0 60%; max-width: 60%; }
+            /* One column on phones: name, phone and message each take the full width. */
+            #hero .hero__caption #form-hero > .form-row > .form-group,
+            #form-contact > .form-row > .form-group { width: 100%; flex: 0 0 100%; max-width: 100%; }
+            #hero .hero__caption #form-hero .form-group { margin-bottom: 1rem; }
+            /* The boxes say what they are ("Your Name"); hiding the labels keeps Submit on the first screen. */
+            #hero .hero__caption #form-hero label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+            #hero .hero__caption #form-hero textarea.form-control { height: 44px; min-height: 44px; }
             #form-hero-phone, #form-contact-phone { padding-left: 10px; padding-right: 6px; min-width: 0; }
             #hero .hero__caption #form-hero #form-hero-submit, #form-contact-submit { min-height: 46px; font-size: 16px; }
         }
+    </style>
+    <style>
+        /* Email was removed from the forms; the message box spans the whole row at every width. */
+        #hero .hero__caption #form-hero > .form-row.align-items-stretch > .form-group,
+        #form-contact > .form-row.align-items-stretch > .form-group { width: 100%; flex: 0 0 100%; max-width: 100%; }
     </style>
     <!-- Microsoft Clarity: session recordings and heatmaps -->
     <script type="text/javascript">
@@ -164,16 +171,10 @@
                                             </div>
                                         </div>
                                         <div class="form-row align-items-stretch">
-                                            <div class="form-group col-md-6 d-flex flex-column">
-                                                <label for="form-hero-email">Email</label>
-                                                <input id="form-hero-email" name="email" type="email"
-                                                    class="form-control" placeholder="Your Email"
-                                                    aria-label="Your Email" required>
-                                            </div>
-                                            <div class="form-group col-md-6 d-flex flex-column">
+                                            <div class="form-group col-12 d-flex flex-column">
                                                 <label for="form-hero-message">Message</label>
                                                 <textarea id="form-hero-message" name="message"
-                                                    class="form-control flex-grow-1" placeholder="Your Message"
+                                                    class="form-control flex-grow-1" placeholder="Your Message (optional)"
                                                     aria-label="Your Message"></textarea>
                                             </div>
                                         </div>
@@ -503,16 +504,11 @@
                                                     </div>
                                                 </div>
                                                 <div class="form-row align-items-stretch">
-                                                    <div class="form-group col-md-6 d-flex flex-column">
-                                                        <label for="form-contact-email">Email</label>
-                                                        <input type="email" class="form-control" id="form-contact-email"
-                                                            name="email" placeholder="Your Email" required>
-                                                    </div>
-                                                    <div class="form-group col-md-6 d-flex flex-column">
+                                                    <div class="form-group col-12 d-flex flex-column">
                                                         <label for="form-contact-message">Message</label>
                                                         <textarea class="form-control flex-grow-1"
                                                             id="form-contact-message" name="message"
-                                                            placeholder="Your Message" required></textarea>
+                                                            placeholder="Your Message (optional)"></textarea>
                                                     </div>
                                                 </div>
                                                 <div class="form-group">
@@ -628,7 +624,7 @@
     <script type="text/javascript" src="assets/js/owl.carousel.min.js?v=dev"></script>
     <script type="text/javascript" src="assets/js/jquery.magnific-popup.min.js?v=dev"></script>
     <script type="text/javascript" src="assets/js/scrollReveal.min.js?v=dev"></script>
-    <script src="assets/js/custom.js?v=20261011b"></script>
+    <script src="assets/js/custom.js?v=20261011c"></script>
 
     <!-- Form submission modal -->
     <div class="modal fade" id="formSubmitModal" tabindex="-1" role="dialog" aria-labelledby="formSubmitModalLabel"

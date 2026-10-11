@@ -574,14 +574,6 @@ $(function(){
     var $heroForm = $('#form-hero');
     if (!$heroForm.length) return;
 
-    // Ensure tab order: after Email, focus Message before Submit
-    $('#form-hero-email').on('keydown', function(ev){
-        if ((ev.key === 'Tab' || ev.keyCode === 9) && !ev.shiftKey) {
-            ev.preventDefault();
-            $('#form-hero-message').focus();
-        }
-    });
-
     // After Message, focus Submit on forward Tab
     $('#form-hero-message').on('keydown', function(ev){
         if ((ev.key === 'Tab' || ev.keyCode === 9) && !ev.shiftKey) {
