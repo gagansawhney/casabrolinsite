@@ -315,6 +315,102 @@ function captureTrackingParams(){
 
 var landingTrackingParams = captureTrackingParams();
 
+// Funnel step tracker: one small anonymous event per step, so the daily report can show
+// where visitors drop out. Never sends name, phone or email.
+var LP_EVENT_URL = 'https://us-central1-attendance-system-e312c.cloudfunctions.net/landingEvent';
+var lpSent = {};
+var lpSid = (function(){
+    var id = '';
+    try { id = sessionStorage.getItem('lp_sid') || ''; } catch(_){}
+    if (!id) {
+        id = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        try { sessionStorage.setItem('lp_sid', id); } catch(_){}
+    }
+    return id;
+})();
+function lpEvent(name, detail, form){
+    try {
+        if (lpSent[name]) return;
+        lpSent[name] = true;
+        var t = landingTrackingParams || {};
+        var refHost = '';
+        try { refHost = document.referrer ? document.referrer.split('/')[2] || '' : ''; } catch(_){}
+        var body = JSON.stringify({
+            e: name,
+            sid: lpSid,
+            p: window.location.pathname,
+            ms: Math.round((window.performance && performance.now) ? performance.now() : 0),
+            d: detail ? String(detail).slice(0, 200) : '',
+            f: form || '',
+            utm_source: t.utm_source || '', utm_medium: t.utm_medium || '', utm_campaign: t.utm_campaign || '',
+            utm_content: t.utm_content || '', utm_term: t.utm_term || '',
+            fb: !!t.fbclid, g: !!(t.gclid || t.gbraid || t.wbraid),
+            ref: refHost,
+            vw: window.innerWidth || 0
+        });
+        if (navigator.sendBeacon) { navigator.sendBeacon(LP_EVENT_URL, body); }
+        else { $.ajax({ url: LP_EVENT_URL, method: 'POST', contentType: 'text/plain', data: body }); }
+        // Mirror the two steps Meta can use to its own reporting.
+        if (typeof window.fbq === 'function') {
+            if (name === 'form_focus') window.fbq('trackCustom', 'FormStart');
+            if (name === 'otp_verified') window.fbq('trackCustom', 'LeadVerified');
+        }
+    } catch(_){}
+}
+function lpErrorText(err){
+    try {
+        if (!err) return '';
+        if (typeof err === 'string') return err;
+        return err.message || err.type || JSON.stringify(err);
+    } catch(_){ return ''; }
+}
+$(function(){
+    lpEvent('page_view');
+    setTimeout(function(){ lpEvent('time_15s'); }, 15000);
+    $(window).on('scroll.lp', function(){
+        var doc = document.documentElement;
+        if ((window.pageYOffset + window.innerHeight) >= (doc.scrollHeight * 0.5)) {
+            lpEvent('scroll_50');
+            $(window).off('scroll.lp');
+        }
+    });
+    $('#form-hero, #form-contact').on('focusin', function(){
+        lpEvent('form_focus', '', this.id === 'form-hero' ? 'hero' : 'contact');
+    });
+    $('#form-hero-submit, #form-contact-submit').on('click', function(){
+        lpEvent('submit_click', '', this.id === 'form-hero-submit' ? 'hero' : 'contact');
+    });
+    // Browser blocked the submit because a required field was empty or malformed.
+    $('#form-hero, #form-contact').each(function(){
+        var formEl = this;
+        formEl.addEventListener('invalid', function(ev){
+            lpEvent('submit_invalid', (ev.target && ev.target.name) || '', formEl.id === 'form-hero' ? 'hero' : 'contact');
+        }, true);
+    });
+    $(document).on('click', 'a[href^="tel:"], a[href*="wa.me"], a[href*="whatsapp"]', function(){
+        lpEvent('cta_click', (this.getAttribute('href') || '').slice(0, 40));
+    });
+});
+
+// A visitor who presses submit is NOT a lead until the SMS code is verified. The attempt is
+// kept in a separate log (never the CRM, never Slack) so drop-outs at the code step are visible.
+function logSubmitAttempt(formLocation, name, email, phoneE164, message){
+    lpEvent('submit', '', formLocation);
+    try {
+        var t = landingTrackingParams || {};
+        var body = JSON.stringify({
+            e: 'attempt', sid: lpSid, f: formLocation, p: window.location.pathname,
+            name: name || '', email: email || '', phone: (phoneE164 || '').toString().replace(/\D+/g, ''),
+            message: message || '',
+            utm_source: t.utm_source || '', utm_medium: t.utm_medium || '', utm_campaign: t.utm_campaign || '',
+            utm_content: t.utm_content || '', utm_term: t.utm_term || '',
+            fb: !!t.fbclid, g: !!(t.gclid || t.gbraid || t.wbraid)
+        });
+        if (navigator.sendBeacon) { navigator.sendBeacon(LP_EVENT_URL, body); }
+        else { $.ajax({ url: LP_EVENT_URL, method: 'POST', contentType: 'text/plain', data: body }); }
+    } catch(_){}
+}
+
 function sendPartyWebhook(formLocation, name, email, phoneE164, remarks){
     try {
         var phoneDigits = (phoneE164 || '').toString().replace(/\D+/g, '');
@@ -361,8 +457,10 @@ function sendPartyWebhook(formLocation, name, email, phoneE164, remarks){
             data: JSON.stringify(payload)
         }).done(function(resp){
             try { console.log('[partyWebhook] success', resp); } catch(_){}
+            lpEvent('lead_saved', '', formLocation);
         }).fail(function(xhr){
             try { console.error('[partyWebhook] failed', xhr && xhr.status, xhr && xhr.responseText); } catch(_){}
+            lpEvent('lead_save_failed', 'HTTP ' + (xhr && xhr.status), formLocation);
         });
     } catch (e) {
         try { console.error('[partyWebhook] exception', e); } catch(_){}
@@ -458,11 +556,13 @@ function getScrollBarWidth () {
 }
 
 // Load MSG91 OTP SDK when needed
-function ensureMsg91Loaded(callback){
+function ensureMsg91Loaded(callback, onError){
+    lpEvent('otp_loading');
     if (window.initSendOTP) { callback(); return; }
     var s = document.createElement('script');
     s.type = 'text/javascript';
     s.onload = callback;
+    s.onerror = function(){ lpEvent('otp_load_failed'); if (onError) onError(); };
     s.src = 'https://verify.msg91.com/otp-provider.js';
     document.body.appendChild(s);
 }
@@ -521,6 +621,7 @@ $(function(){
             exposeMethods: false,
             success: function(data){
                 // data should contain the verified token
+                lpEvent('otp_verified', '', 'hero');
                 try { console.log('[otp][hero] success payload', data); } catch(e){}
                 var token = (data && (data.token || data['access-token'] || data.accessToken)) || '';
                 if (!token && data && typeof data.message === 'string' && data.message.length > 10) {
@@ -618,6 +719,7 @@ $(function(){
                 });
             },
             failure: function(error){
+                lpEvent('otp_failed', lpErrorText(error), 'hero');
                 try { console.warn('[otp][hero] failure callback', error); } catch(e){}
                 try {
                     $('#formSubmitModal .modal-title').text('Verification failed');
@@ -628,7 +730,7 @@ $(function(){
             }
         };
         ensureMsg91Loaded(function(){
-            try { console.log('[otp][hero] calling initSendOTP', { identifier: configuration.identifier, exposeMethods: configuration.exposeMethods }); window.initSendOTP(configuration); }
+            try { console.log('[otp][hero] calling initSendOTP', { identifier: configuration.identifier, exposeMethods: configuration.exposeMethods }); window.initSendOTP(configuration); lpEvent('otp_ready', '', 'hero'); }
             catch(e){
                 try {
                     $('#formSubmitModal .modal-title').text('Verification unavailable');
@@ -637,13 +739,14 @@ $(function(){
                 } catch(_){}
                 $('#form-hero-submit').prop('disabled', false);
             }
-        });
+        }, function(){ try { $('#formSubmitModal .modal-title').text('Verification unavailable'); $('#formSubmitModal .modal-body').text('OTP service is unavailable. Please try again later.'); $('#formSubmitModal').modal('show'); } catch(_){} $('#form-hero-submit').prop('disabled', false); });
     }
 
     $heroForm.on('submit', function(e){
         e.preventDefault();
         var e164 = normalizeE164($('#form-hero-cc').val(), $('#form-hero-phone').val());
         $('#form-hero-submit').prop('disabled', true);
+        logSubmitAttempt('hero', $('#form-hero-name').val(), $('#form-hero-email').val(), e164, $('#form-hero-message').val());
         startOtpVerification(e164);
     });
 });
@@ -685,6 +788,7 @@ $(function(){
             identifier: e164Phone,
             exposeMethods: false,
             success: function(data){
+                lpEvent('otp_verified', '', 'contact');
                 try { console.log('[otp][contact] success payload', data); } catch(e){}
                 var token = (data && (data.token || data['access-token'] || data.accessToken)) || '';
                 if (!token && data && typeof data.message === 'string' && data.message.length > 10) {
@@ -780,6 +884,7 @@ $(function(){
                 });
             },
             failure: function(){
+                lpEvent('otp_failed', lpErrorText(arguments[0]), 'contact');
                 try { console.warn('[otp][contact] failure callback'); } catch(e){}
                 try {
                     $('#formSubmitModal .modal-title').text('Verification failed');
@@ -789,13 +894,14 @@ $(function(){
                 $('#form-contact-submit').prop('disabled', false);
             }
         };
-        ensureMsg91Loaded(function(){ try { console.log('[otp][contact] calling initSendOTP', { identifier: configuration.identifier, exposeMethods: configuration.exposeMethods }); window.initSendOTP(configuration); } catch(e){ $('#form-contact-submit').prop('disabled', false); }});
+        ensureMsg91Loaded(function(){ try { console.log('[otp][contact] calling initSendOTP', { identifier: configuration.identifier, exposeMethods: configuration.exposeMethods }); window.initSendOTP(configuration); lpEvent('otp_ready', '', 'contact'); } catch(e){ $('#form-contact-submit').prop('disabled', false); }}, function(){ try { $('#formSubmitModal .modal-title').text('Verification unavailable'); $('#formSubmitModal .modal-body').text('OTP service is unavailable. Please try again later.'); $('#formSubmitModal').modal('show'); } catch(_){} $('#form-contact-submit').prop('disabled', false); });
     }
 
     $contactForm.on('submit', function(e){
         e.preventDefault();
         var e164 = normalizeE164($('#form-contact-cc').val(), $('#form-contact-phone').val());
         $('#form-contact-submit').prop('disabled', true);
+        logSubmitAttempt('contact', $('#form-contact-name').val(), $('#form-contact-email').val(), e164, $('#form-contact-message').val());
         startOtpVerificationContact(e164);
     });
 });
