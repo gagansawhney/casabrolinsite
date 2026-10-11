@@ -78,6 +78,13 @@
         }
     </style>
     <style>
+        /* Submit was mid-grey on a near-black panel and read as disabled. Use the page's sand accent. id: submit-accent */
+        #hero .hero__caption #form-hero #form-hero-submit,
+        #form-contact #form-contact-submit { background-color: #ffd7b3 !important; border-color: #ffd7b3 !important; color: #1c1c1c !important; font-weight: 600; }
+        #hero .hero__caption #form-hero #form-hero-submit:hover, #hero .hero__caption #form-hero #form-hero-submit:active,
+        #form-contact #form-contact-submit:hover, #form-contact #form-contact-submit:active { background-color: #f3c59b !important; border-color: #f3c59b !important; }
+        #hero .hero__caption #form-hero #form-hero-submit:disabled,
+        #form-contact #form-contact-submit:disabled { opacity: .55; }
         /* Email was removed from the forms; the message box spans the whole row at every width. */
         #hero .hero__caption #form-hero > .form-row.align-items-stretch > .form-group,
         #form-contact > .form-row.align-items-stretch > .form-group { width: 100%; flex: 0 0 100%; max-width: 100%; }
