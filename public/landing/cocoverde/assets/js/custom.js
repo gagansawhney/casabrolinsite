@@ -394,6 +394,35 @@ $(function(){
     });
 });
 
+// Phone autofill (Instagram, Safari, Chrome) often writes the country as letters ("IN", "India")
+// into the dial-code box, or puts the whole number with its country code into the phone box.
+// Either used to produce numbers like "+IN98..." that the SMS step could not use.
+function lpValidDialCode(cc){
+    return /^\+?\d{1,4}$/.test((cc || '').toString().replace(/\s+/g, ''));
+}
+function lpNormalizePhone(cc, phone){
+    cc = (cc || '').toString().trim();
+    phone = (phone || '').toString().trim();
+    var ccDigits = lpValidDialCode(cc) ? cc.replace(/\D+/g, '') : '91';
+    var digits = phone.replace(/\D+/g, '').replace(/^0+/, '');
+    if (phone.charAt(0) === '+' && digits.length > 10) return '+' + digits;
+    if (ccDigits === '91' && digits.length === 12 && digits.indexOf('91') === 0) digits = digits.slice(2);
+    return '+' + ccDigits + digits;
+}
+$(function(){
+    function fixDialCode(el){
+        if (!lpValidDialCode(el.value)) {
+            lpEvent('cc_fixed', (el.value || '').slice(0, 20), el.id === 'form-hero-cc' ? 'hero' : 'contact');
+            el.value = '+91';
+        }
+    }
+    $('#form-hero-cc, #form-contact-cc').on('change blur', function(){ fixDialCode(this); });
+    // Autofill does not always fire events, so check again just before the form is submitted.
+    $('#form-hero-submit, #form-contact-submit').on('click', function(){
+        $('#form-hero-cc, #form-contact-cc').each(function(){ fixDialCode(this); });
+    });
+});
+
 // A visitor who presses submit is NOT a lead until the SMS code is verified. The attempt is
 // kept in a separate log (never the CRM, never Slack) so drop-outs at the code step are visible.
 function logSubmitAttempt(formLocation, name, email, phoneE164, message){
@@ -582,13 +611,7 @@ $(function(){
         }
     });
 
-    function normalizeE164(cc, phone){
-        cc = (cc || '+91').toString().trim();
-        phone = (phone || '').toString().trim();
-        if (cc.charAt(0) !== '+') cc = '+' + cc;
-        phone = phone.replace(/\D+/g, '').replace(/^0+/, '');
-        return cc + phone;
-    }
+    function normalizeE164(cc, phone){ return lpNormalizePhone(cc, phone); }
 
     function submitHeroFormAjax(){
         try {
@@ -750,13 +773,7 @@ $(function(){
     var $contactForm = $('#form-contact');
     if (!$contactForm.length) return;
 
-    function normalizeE164(cc, phone){
-        cc = (cc || '+91').toString().trim();
-        phone = (phone || '').toString().trim();
-        if (cc.charAt(0) !== '+') cc = '+' + cc;
-        phone = phone.replace(/\D+/g, '').replace(/^0+/, '');
-        return cc + phone;
-    }
+    function normalizeE164(cc, phone){ return lpNormalizePhone(cc, phone); }
 
     function submitContactAjax(){
         try {

@@ -157,16 +157,16 @@
                                         <div class="form-row">
                                             <div class="form-group col-md-6">
                                                 <label for="form-hero-name">Name</label>
-                                                <input id="form-hero-name" name="name" type="text" class="form-control"
+                                                <input id="form-hero-name" name="name" type="text" autocomplete="name" class="form-control"
                                                     placeholder="Your Name" aria-label="Your Name" required>
                                             </div>
                                             <div class="form-group col-md-6">
                                                 <label for="form-hero-phone">Phone</label>
                                                 <div class="d-flex">
-                                                    <input id="form-hero-cc" name="country_code" type="text"
+                                                    <input id="form-hero-cc" name="country_code" type="text" autocomplete="tel-country-code" inputmode="tel"
                                                         class="form-control mr-2" value="+91" aria-label="Country Code"
                                                         style="max-width: 90px;">
-                                                    <input id="form-hero-phone" name="phone" type="tel"
+                                                    <input id="form-hero-phone" name="phone" type="tel" autocomplete="tel-national" inputmode="numeric"
                                                         class="form-control flex-grow-1" placeholder="Your Phone"
                                                         aria-label="Your Phone" required>
                                                 </div>
@@ -490,17 +490,17 @@
                                                     <div class="form-group col-md-6">
                                                         <label for="form-contact-name">Name</label>
                                                         <input type="text" class="form-control" id="form-contact-name"
-                                                            name="name" placeholder="Your Name" required>
+                                                            name="name" autocomplete="name" placeholder="Your Name" required>
                                                     </div>
                                                     <div class="form-group col-md-6">
                                                         <label for="form-contact-phone">Phone</label>
                                                         <div class="d-flex">
                                                             <input style="padding: 1.5rem .5rem" id="form-contact-cc"
-                                                                name="country_code" type="text"
+                                                                name="country_code" type="text" autocomplete="tel-country-code" inputmode="tel"
                                                                 class="form-control mr-2" value="+91"
                                                                 aria-label="Country Code" style="max-width: 90px;">
                                                             <input type="tel" class="form-control flex-grow-1"
-                                                                id="form-contact-phone" name="phone"
+                                                                id="form-contact-phone" name="phone" autocomplete="tel-national" inputmode="numeric"
                                                                 placeholder="Your Phone" required>
                                                         </div>
                                                     </div>
@@ -626,7 +626,7 @@
     <script type="text/javascript" src="assets/js/owl.carousel.min.js?v=dev"></script>
     <script type="text/javascript" src="assets/js/jquery.magnific-popup.min.js?v=dev"></script>
     <script type="text/javascript" src="assets/js/scrollReveal.min.js?v=dev"></script>
-    <script src="assets/js/custom.js?v=20261011c"></script>
+    <script src="assets/js/custom.js?v=20261011d"></script>
 
     <!-- Form submission modal -->
     <div class="modal fade" id="formSubmitModal" tabindex="-1" role="dialog" aria-labelledby="formSubmitModalLabel"
