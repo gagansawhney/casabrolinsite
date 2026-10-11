@@ -70,7 +70,9 @@
             #hero .hero__caption #form-hero .form-group { margin-bottom: 1rem; }
             /* The boxes say what they are ("Your Name"); hiding the labels keeps Submit on the first screen. */
             #hero .hero__caption #form-hero label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-            #hero .hero__caption #form-hero textarea.form-control { height: 44px; min-height: 44px; }
+            /* A text area starts its text at the top; pad it so one line sits centred like the other boxes. */
+            #hero .hero__caption #form-hero textarea.form-control,
+            #form-contact textarea.form-control { height: 44px; min-height: 44px; line-height: 24px !important; padding-top: 8px !important; padding-bottom: 8px !important; }
             #form-hero-phone, #form-contact-phone { padding-left: 10px; padding-right: 6px; min-width: 0; }
             #hero .hero__caption #form-hero #form-hero-submit, #form-contact-submit { min-height: 46px; font-size: 16px; }
         }
