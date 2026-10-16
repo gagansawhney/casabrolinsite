@@ -322,6 +322,15 @@ var lpSent = {};
 var lpSid = (function(){
     var id = '';
     try { id = sessionStorage.getItem('lp_sid') || ''; } catch(_){}
+    // A visitor coming back to finish the SMS code step keeps the visit id they submitted under,
+    // so the funnel log sees one visit (see LP_PENDING_KEY below).
+    if (!id) {
+        try {
+            var pending = JSON.parse(localStorage.getItem('lp_pending_otp') || 'null');
+            if (pending && pending.sid && (Date.now() - pending.at) < 15 * 60 * 1000) id = pending.sid;
+        } catch(_){}
+        if (id) { try { sessionStorage.setItem('lp_sid', id); } catch(_){} }
+    }
     if (!id) {
         id = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
         try { sessionStorage.setItem('lp_sid', id); } catch(_){}
@@ -598,11 +607,288 @@ function ensureMsg91Loaded(callback, onError){
     document.body.appendChild(s);
 }
 
-// Hero form submission flow, gated by MSG91 OTP verification
-$(function(){
-    var $heroForm = $('#form-hero');
-    if (!$heroForm.length) return;
+// SMS code step. MSG91 runs in "exposeMethods" mode and the code box is our own (#lp-otp), because:
+//  - MSG91's own box turns autocomplete off; ours has autocomplete="one-time-code", so iPhones and
+//    most Android keyboards offer the code from the SMS without leaving the page;
+//  - Android in-app browsers (Facebook, Instagram) often reload the page while the visitor is away
+//    reading the SMS. The request id is kept in localStorage (LP_PENDING_KEY), so on return the
+//    code box reopens with their details filled in and the code they received still works;
+//  - leaving and returning during the code step is logged (otp_hidden, otp_back, otp_left).
+// A visitor is still a lead only once the code is verified (owner's rule, 11 Oct 2026).
+var LP_OTP_WIDGET_ID = '356844694444383834333338';
+var LP_OTP_TOKEN_AUTH = '466799TwbvCuEjh68b2c585P1';
+var LP_PENDING_KEY = 'lp_pending_otp';          // also read by lpSid above, which runs first
+var LP_PENDING_MAX_MS = 15 * 60 * 1000;          // this widget's codes expire after 15 minutes
+var LP_RESEND_AFTER_MS = 30 * 1000;
+var lpOtpInitDone = false;
+var lpOtpState = null;    // {form, sid, name, cc, phone, message, e164, reqId, at} while the box is open
+var lpOtpHiddenAt = 0;
+var lpResendTimer = null;
 
+function lpFormFields(form){
+    return {
+        name: $('#form-' + form + '-name').val() || '',
+        cc: $('#form-' + form + '-cc').val() || '',
+        phone: $('#form-' + form + '-phone').val() || '',
+        message: $('#form-' + form + '-message').val() || ''
+    };
+}
+function lpSavePending(){ try { localStorage.setItem(LP_PENDING_KEY, JSON.stringify(lpOtpState)); } catch(_){} }
+function lpClearPending(){ try { localStorage.removeItem(LP_PENDING_KEY); } catch(_){} }
+function lpLoadPending(){
+    try {
+        var p = JSON.parse(localStorage.getItem(LP_PENDING_KEY) || 'null');
+        if (p && p.reqId && p.form && (Date.now() - p.at) < LP_PENDING_MAX_MS) return p;
+    } catch(_){}
+    lpClearPending();
+    return null;
+}
+
+// Loads MSG91 once in exposeMethods mode; callback runs when window.sendOtp/verifyOtp are usable.
+function lpOtpInit(callback, onError){
+    ensureMsg91Loaded(function(){
+        try {
+            if (!lpOtpInitDone) {
+                window.initSendOTP({
+                    widgetId: LP_OTP_WIDGET_ID,
+                    tokenAuth: LP_OTP_TOKEN_AUTH,
+                    exposeMethods: true,
+                    success: function(){},
+                    failure: function(){}
+                });
+                lpOtpInitDone = true;
+            }
+        } catch(e){ lpEvent('otp_load_failed', lpErrorText(e)); if (onError) onError(); return; }
+        // The methods appear once MSG91 has fetched the widget settings.
+        var tries = 0;
+        (function wait(){
+            var ready = false;
+            try { ready = typeof window.sendOtp === 'function' && typeof window.verifyOtp === 'function' && !!window.getWidgetData(); } catch(_){}
+            if (ready) { callback(); return; }
+            if (++tries > 80) { lpEvent('otp_load_failed', 'methods missing'); if (onError) onError(); return; }
+            setTimeout(wait, 100);
+        })();
+    }, onError);
+}
+
+function lpOtpBox(){
+    var $box = $('#lp-otp');
+    if ($box.length) return $box;
+    $box = $(
+        '<div id="lp-otp" role="dialog" aria-modal="true" aria-labelledby="lp-otp-title" style="display:none">' +
+            '<div class="lp-otp__card">' +
+                '<button type="button" class="lp-otp__x" aria-label="Close"></button>' +
+                '<h3 id="lp-otp-title" class="lp-otp__title">Verify your number</h3>' +
+                '<p class="lp-otp__to"></p>' +
+                '<input id="lp-otp-code" class="lp-otp__code" type="text" inputmode="numeric" autocomplete="one-time-code"' +
+                    ' pattern="[0-9]*" maxlength="4" placeholder="4-digit code" aria-label="4-digit code">' +
+                '<p class="lp-otp__msg" aria-live="polite"></p>' +
+                '<button type="button" class="lp-otp__verify">Verify</button>' +
+                '<button type="button" class="lp-otp__resend" disabled>Resend code</button>' +
+            '</div>' +
+        '</div>'
+    ).appendTo('body');
+    $box.find('.lp-otp__code').on('input', function(){
+        var v = (this.value || '').replace(/\D+/g, '').slice(0, 4);
+        if (this.value !== v) this.value = v;
+        if (v.length === 4) lpOtpVerify();
+    });
+    $box.find('.lp-otp__code').on('keydown', function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); lpOtpVerify(); } });
+    $box.find('.lp-otp__verify').on('click', lpOtpVerify);
+    $box.find('.lp-otp__resend').on('click', lpOtpResend);
+    $box.find('.lp-otp__x').on('click', lpOtpCancel);
+    return $box;
+}
+// "+919876543210" -> "+91 98765 43210" (other countries are shown as typed).
+function lpPrettyPhone(e164){
+    var m = /^\+91(\d{5})(\d{5})$/.exec(e164 || '');
+    return m ? '+91 ' + m[1] + ' ' + m[2] : (e164 || '');
+}
+function lpOtpMsg(text, isError){
+    lpOtpBox().find('.lp-otp__msg').text(text || '').toggleClass('lp-otp__msg--error', !!isError);
+}
+function lpOtpShow(toText){
+    var $box = lpOtpBox();
+    $box.find('.lp-otp__to').text(toText || '');
+    $box.find('.lp-otp__code').val('');
+    lpOtpMsg('');
+    $box.show();
+    $('body').addClass('lp-otp-open');
+}
+function lpOtpHide(){
+    clearTimeout(lpResendTimer);
+    $('#lp-otp').hide();
+    $('body').removeClass('lp-otp-open');
+}
+function lpOtpCodeSent(){
+    var $box = lpOtpBox();
+    $box.find('.lp-otp__to').text('Enter the 4-digit code we sent by SMS to ' + lpPrettyPhone(lpOtpState.e164) + '.');
+    lpOtpArmResend(LP_RESEND_AFTER_MS - (Date.now() - lpOtpState.at));
+    setTimeout(function(){ $box.find('.lp-otp__code').trigger('focus'); }, 50);
+}
+function lpOtpArmResend(waitMs){
+    var $btn = lpOtpBox().find('.lp-otp__resend').prop('disabled', true);
+    clearTimeout(lpResendTimer);
+    lpResendTimer = setTimeout(function(){ $btn.prop('disabled', false); }, Math.max(0, waitMs));
+}
+function lpOtpUnavailable(){
+    lpOtpHide();
+    lpClearPending();
+    try {
+        $('#formSubmitModal .modal-title').text('Verification unavailable');
+        $('#formSubmitModal .modal-body').text('OTP service is unavailable. Please try again later.');
+        $('#formSubmitModal').modal('show');
+    } catch(_){}
+    if (lpOtpState) $('#form-' + lpOtpState.form + '-submit').prop('disabled', false);
+    lpOtpState = null;
+}
+
+function lpOtpStart(form, e164){
+    var f = lpFormFields(form);
+    lpOtpState = { form: form, sid: lpSid, name: f.name, cc: f.cc, phone: f.phone, message: f.message, e164: e164, reqId: '', at: Date.now() };
+    lpOtpShow('Sending a code to ' + lpPrettyPhone(e164) + '…');
+    lpOtpInit(function(){
+        var s = lpOtpState;
+        if (!s) return;
+        window.sendOtp(e164, function(data){
+            s.reqId = (data && (data.message || data.reqId || data.request_id)) || '';
+            s.at = Date.now();
+            lpSavePending();
+            lpEvent('otp_ready', '', form);
+            lpOtpCodeSent();
+        }, function(err){
+            lpEvent('otp_send_failed', lpErrorText(err), form);
+            lpClearPending();
+            lpOtpMsg('We could not send a code to this number. Please check the number and try again.', true);
+        });
+    }, lpOtpUnavailable);
+}
+
+function lpOtpResend(){
+    var s = lpOtpState;
+    if (!s || !s.reqId) return;
+    lpOtpArmResend(LP_RESEND_AFTER_MS);
+    lpOtpMsg('Sending a new code…');
+    lpOtpInit(function(){
+        window.retryOtp(null, function(){
+            lpEvent('otp_resend', '', s.form);
+            s.at = Date.now();
+            lpSavePending();
+            lpOtpMsg('A new code is on its way.');
+        }, function(err){
+            lpEvent('otp_resend_failed', lpErrorText(err), s.form);
+            lpOtpMsg('Could not resend just now. Please try again in a minute.', true);
+        }, s.reqId);
+    }, lpOtpUnavailable);
+}
+
+function lpOtpVerify(){
+    var s = lpOtpState;
+    if (!s || s.busy) return;
+    if (!s.reqId) { lpOtpMsg('The code is still being sent. Please wait a moment.'); return; }
+    var code = (lpOtpBox().find('.lp-otp__code').val() || '').replace(/\D+/g, '');
+    if (code.length !== 4) { lpOtpMsg('Enter the 4-digit code from the SMS.', true); return; }
+    s.busy = true;
+    lpOtpMsg('Checking…');
+    lpOtpInit(function(){
+        window.verifyOtp(code, function(data){
+            s.busy = false;
+            lpEvent('otp_verified', '', s.form);
+            var token = (data && (data.message || data.token || data['access-token'] || data.accessToken)) || '';
+            lpClearPending();
+            lpOtpHide();
+            lpOtpState = null;
+            lpFinishLead(s, token);
+        }, function(err){
+            s.busy = false;
+            lpEvent('otp_wrong', lpErrorText(err), s.form);
+            lpOtpMsg('That code did not work. Check the latest SMS and try again, or tap Resend code.', true);
+            lpOtpBox().find('.lp-otp__code').val('').trigger('focus');
+        }, s.reqId);
+    }, function(){ s.busy = false; lpOtpUnavailable(); });
+}
+
+function lpOtpCancel(){
+    if (lpOtpState) {
+        lpEvent('otp_failed', 'User cancelled the verification process.', lpOtpState.form);
+        $('#form-' + lpOtpState.form + '-submit').prop('disabled', false);
+    }
+    lpClearPending();
+    lpOtpHide();
+    lpOtpState = null;
+}
+
+// After the code is verified: check MSG91's token on our server, then record the lead.
+function lpFinishLead(s, token){
+    var phone = lpNormalizePhone(s.cc, s.phone);
+    function record(contentName){
+        try {
+            trackGAGenerateLeadOnce({ form_location: s.form });
+            trackAdsConversionOnce();
+            trackLeadOnce({ content_name: contentName, form_location: s.form });
+            sendPartyWebhook(s.form, s.name, '', phone, s.message);
+        } catch(e){}
+        lpShowThanks(s.form);
+    }
+    function failed(title, body){
+        try {
+            $('#formSubmitModal .modal-title').text(title);
+            $('#formSubmitModal .modal-body').text(body);
+            $('#formSubmitModal').modal('show');
+        } catch(e){}
+        $('#form-' + s.form + '-submit').prop('disabled', false);
+    }
+    if (!token) { record('Nerul landing form (OTP success, no token)'); return; }
+    $.ajax({
+        url: 'assets/api/verify_otp.php',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ access_token: token })
+    }).done(function(resp){
+        if (resp && resp.ok) { record('Nerul landing form (OTP success)'); return; }
+        // If server not configured for MSG91, optimistically proceed
+        if (resp && typeof resp.error === 'string' && /Server not configured|MSG91_AUTHKEY/i.test(resp.error)) {
+            record('Nerul landing form (OTP client success)');
+            return;
+        }
+        failed('Verification failed', 'We could not verify your number. Please try again.');
+    }).fail(function(xhr){
+        var rt = (xhr && xhr.responseText) || '';
+        if (xhr && xhr.status === 500 && /Server not configured|MSG91_AUTHKEY/i.test(rt)) {
+            record('Nerul landing form (OTP client success)');
+            return;
+        }
+        failed('Verification error', 'A server error occurred. Please try again.');
+    });
+}
+
+function lpShowThanks(form){
+    try {
+        $('#formSubmitModal .modal-title').text('Thank You for sharing your information');
+        $('#formSubmitModal .modal-body').text('Our agent will soon get in touch with you.');
+        $('#formSubmitModal').modal('show');
+    } catch(e){}
+    var $form = $('#form-' + form);
+    if ($form.length) $form[0].reset();
+    $('#form-' + form + '-submit').prop('disabled', false);
+}
+
+// Did the visitor leave the page during the code step (usually to read the SMS), and come back?
+document.addEventListener('visibilitychange', function(){
+    if (!lpOtpState) return;
+    if (document.visibilityState === 'hidden') {
+        lpOtpHiddenAt = Date.now();
+        lpEvent('otp_hidden', '', lpOtpState.form);
+    } else if (lpOtpHiddenAt) {
+        lpEvent('otp_back', Math.round((Date.now() - lpOtpHiddenAt) / 1000) + 's', lpOtpState.form);
+        if (lpOtpState.reqId) lpOtpBox().find('.lp-otp__code').trigger('focus');
+    }
+});
+window.addEventListener('pagehide', function(){
+    if (lpOtpState) lpEvent('otp_left', '', lpOtpState.form);
+});
+
+$(function(){
     // After Message, focus Submit on forward Tab
     $('#form-hero-message').on('keydown', function(ev){
         if ((ev.key === 'Tab' || ev.keyCode === 9) && !ev.shiftKey) {
@@ -611,310 +897,33 @@ $(function(){
         }
     });
 
-    function normalizeE164(cc, phone){ return lpNormalizePhone(cc, phone); }
-
-    function submitHeroFormAjax(){
-        try {
-            $('#formSubmitModal .modal-title').text('Thank You for sharing your information');
-            $('#formSubmitModal .modal-body').text('Our agent will soon get in touch with you.');
-            $('#formSubmitModal').modal('show');
-        } catch(e){}
-        // Fallback: ensure tracking if OTP path didn't run
-        trackGAGenerateLeadOnce({ form_location: 'hero' });
-        trackAdsConversionOnce();
-        trackLeadOnce({
-            content_name: 'Nerul landing form (AJAX success fallback)',
-            form_location: 'hero'
-        });
-        $heroForm[0].reset();
-        $('#form-hero-submit').prop('disabled', false);
-    }
-
-    function startOtpVerification(e164Phone){
-        var configuration = {
-            widgetId: '356844694444383834333338',
-            tokenAuth: '466799TwbvCuEjh68b2c585P1',
-            identifier: e164Phone,
-            exposeMethods: false,
-            success: function(data){
-                // data should contain the verified token
-                lpEvent('otp_verified', '', 'hero');
-                try { console.log('[otp][hero] success payload', data); } catch(e){}
-                var token = (data && (data.token || data['access-token'] || data.accessToken)) || '';
-                if (!token && data && typeof data.message === 'string' && data.message.length > 10) {
-                    token = data.message; // MSG91 sometimes returns JWT in `message`
-                }
-                try { console.log('[otp][hero] extracted token', token ? '[present]' : '[missing]'); } catch(e){}
-                if (!token) {
-                    sendPartyWebhook(
-                        'hero',
-                        $('#form-hero-name').val(),
-                        $('#form-hero-email').val(),
-                        normalizeE164($('#form-hero-cc').val(), $('#form-hero-phone').val()),
-                        $('#form-hero-message').val()
-                    );
-                    submitHeroFormAjax();
-                    return;
-                }
-                // Call our server to verify token against MSG91
-                $.ajax({
-                    url: 'assets/api/verify_otp.php',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ access_token: token })
-                }).done(function(resp){
-                    try { console.log('[otp][hero] verify_otp response', resp); } catch(e){}
-                    if (resp && resp.ok) {
-                        try {
-                            trackGAGenerateLeadOnce({ form_location: 'hero' });
-                            trackAdsConversionOnce();
-                            trackLeadOnce({
-                                content_name: 'Nerul landing form (OTP success)',
-                                form_location: 'hero'
-                            });
-                            sendPartyWebhook(
-                                'hero',
-                                $('#form-hero-name').val(),
-                                $('#form-hero-email').val(),
-                                normalizeE164($('#form-hero-cc').val(), $('#form-hero-phone').val()),
-                                $('#form-hero-message').val()
-                            );
-                        } catch(e){}
-                        submitHeroFormAjax();
-                    }
-                    else {
-                        // If server not configured for MSG91, optimistically proceed
-                        if (resp && typeof resp.error === 'string' && /Server not configured|MSG91_AUTHKEY/i.test(resp.error)) {
-                            try {
-                                trackGAGenerateLeadOnce({ form_location: 'hero' });
-                                trackAdsConversionOnce();
-                                trackLeadOnce({ content_name: 'Nerul landing form (OTP client success)', form_location: 'hero' });
-                                sendPartyWebhook(
-                                    'hero',
-                                    $('#form-hero-name').val(),
-                                    $('#form-hero-email').val(),
-                                    normalizeE164($('#form-hero-cc').val(), $('#form-hero-phone').val()),
-                                    $('#form-hero-message').val()
-                                );
-                            } catch(e){}
-                            submitHeroFormAjax();
-                            return;
-                        }
-                        try {
-                            $('#formSubmitModal .modal-title').text('Verification failed');
-                            $('#formSubmitModal .modal-body').text('We could not verify your number. Please try again.');
-                            $('#formSubmitModal').modal('show');
-                        } catch(e){}
-                        $('#form-hero-submit').prop('disabled', false);
-                    }
-                }).fail(function(xhr){
-                    try { console.error('[otp][hero] verify_otp failed', xhr && xhr.status, xhr && xhr.responseText); } catch(e){}
-                    // If server not configured for MSG91, optimistically proceed
-                    try {
-                        var rt = (xhr && xhr.responseText) || '';
-                        if (xhr && xhr.status === 500 && /Server not configured|MSG91_AUTHKEY/i.test(rt)) {
-                            trackGAGenerateLeadOnce({ form_location: 'hero' });
-                            trackAdsConversionOnce();
-                            trackLeadOnce({ content_name: 'Nerul landing form (OTP client success)', form_location: 'hero' });
-                            sendPartyWebhook(
-                                'hero',
-                                $('#form-hero-name').val(),
-                                $('#form-hero-email').val(),
-                                normalizeE164($('#form-hero-cc').val(), $('#form-hero-phone').val()),
-                                $('#form-hero-message').val()
-                            );
-                            submitHeroFormAjax();
-                            return;
-                        }
-                    } catch(e){}
-                    try {
-                        $('#formSubmitModal .modal-title').text('Verification error');
-                        $('#formSubmitModal .modal-body').text('A server error occurred. Please try again.');
-                        $('#formSubmitModal').modal('show');
-                    } catch(e){}
-                    $('#form-hero-submit').prop('disabled', false);
-                });
-            },
-            failure: function(error){
-                lpEvent('otp_failed', lpErrorText(error), 'hero');
-                try { console.warn('[otp][hero] failure callback', error); } catch(e){}
-                try {
-                    $('#formSubmitModal .modal-title').text('Verification failed');
-                    $('#formSubmitModal .modal-body').text('We could not verify your number. Please try again.');
-                    $('#formSubmitModal').modal('show');
-                } catch(e){}
-                $('#form-hero-submit').prop('disabled', false);
-            }
-        };
-        ensureMsg91Loaded(function(){
-            try { console.log('[otp][hero] calling initSendOTP', { identifier: configuration.identifier, exposeMethods: configuration.exposeMethods }); window.initSendOTP(configuration); lpEvent('otp_ready', '', 'hero'); }
-            catch(e){
-                try {
-                    $('#formSubmitModal .modal-title').text('Verification unavailable');
-                    $('#formSubmitModal .modal-body').text('OTP service is unavailable. Please try again later.');
-                    $('#formSubmitModal').modal('show');
-                } catch(_){}
-                $('#form-hero-submit').prop('disabled', false);
-            }
-        }, function(){ try { $('#formSubmitModal .modal-title').text('Verification unavailable'); $('#formSubmitModal .modal-body').text('OTP service is unavailable. Please try again later.'); $('#formSubmitModal').modal('show'); } catch(_){} $('#form-hero-submit').prop('disabled', false); });
-    }
-
-    $heroForm.on('submit', function(e){
+    $('#form-hero, #form-contact').on('submit', function(e){
         e.preventDefault();
-        var e164 = normalizeE164($('#form-hero-cc').val(), $('#form-hero-phone').val());
-        $('#form-hero-submit').prop('disabled', true);
-        logSubmitAttempt('hero', $('#form-hero-name').val(), $('#form-hero-email').val(), e164, $('#form-hero-message').val());
-        startOtpVerification(e164);
+        var form = this.id === 'form-hero' ? 'hero' : 'contact';
+        var f = lpFormFields(form);
+        var e164 = lpNormalizePhone(f.cc, f.phone);
+        $('#form-' + form + '-submit').prop('disabled', true);
+        logSubmitAttempt(form, f.name, '', e164, f.message);
+        lpOtpStart(form, e164);
     });
-});
 
-// Contact form (bottom) – same OTP-gated flow
-$(function(){
-    var $contactForm = $('#form-contact');
-    if (!$contactForm.length) return;
-
-    function normalizeE164(cc, phone){ return lpNormalizePhone(cc, phone); }
-
-    function submitContactAjax(){
-        try {
-            $('#formSubmitModal .modal-title').text('Thank You for sharing your information');
-            $('#formSubmitModal .modal-body').text('Our agent will soon get in touch with you.');
-            $('#formSubmitModal').modal('show');
-        } catch(e){}
-        // Fallback: ensure tracking if OTP path didn't run
-        trackGAGenerateLeadOnce({ form_location: 'contact' });
-        trackAdsConversionOnce();
-        trackLeadOnce({
-            content_name: 'Nerul landing form (AJAX success fallback)',
-            form_location: 'contact'
-        });
-        $contactForm[0].reset();
-        $('#form-contact-submit').prop('disabled', false);
+    // Back within 15 minutes of being sent a code (often after the in-app browser reloaded the page):
+    // put their details back and reopen the code box. The code already sent still works.
+    var p = lpLoadPending();
+    if (p) {
+        $('#form-' + p.form + '-name').val(p.name);
+        $('#form-' + p.form + '-cc').val(p.cc);
+        $('#form-' + p.form + '-phone').val(p.phone);
+        $('#form-' + p.form + '-message').val(p.message);
+        $('#form-' + p.form + '-submit').prop('disabled', true);
+        p.busy = false;
+        lpOtpState = p;
+        lpEvent('otp_resumed', Math.round((Date.now() - p.at) / 1000) + 's', p.form);
+        lpOtpShow('');
+        lpOtpCodeSent();
+        lpOtpMsg('Welcome back. Your code is still valid.');
+        lpOtpInit(function(){}, function(){});
     }
-
-    function startOtpVerificationContact(e164Phone){
-        var configuration = {
-            widgetId: '356844694444383834333338',
-            tokenAuth: '466799TwbvCuEjh68b2c585P1',
-            identifier: e164Phone,
-            exposeMethods: false,
-            success: function(data){
-                lpEvent('otp_verified', '', 'contact');
-                try { console.log('[otp][contact] success payload', data); } catch(e){}
-                var token = (data && (data.token || data['access-token'] || data.accessToken)) || '';
-                if (!token && data && typeof data.message === 'string' && data.message.length > 10) {
-                    token = data.message; // MSG91 sometimes returns JWT in `message`
-                }
-                try { console.log('[otp][contact] extracted token', token ? '[present]' : '[missing]'); } catch(e){}
-                if (!token) {
-                    sendPartyWebhook(
-                        'contact',
-                        $('#form-contact-name').val(),
-                        $('#form-contact-email').val(),
-                        normalizeE164($('#form-contact-cc').val(), $('#form-contact-phone').val()),
-                        $('#form-contact-message').val()
-                    );
-                    submitContactAjax();
-                    return;
-                }
-                $.ajax({
-                    url: 'assets/api/verify_otp.php',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ access_token: token })
-                }).done(function(resp){
-                    try { console.log('[otp][contact] verify_otp response', resp); } catch(e){}
-                    if (resp && resp.ok) {
-                        try {
-                            trackGAGenerateLeadOnce({ form_location: 'contact' });
-                            trackAdsConversionOnce();
-                            trackLeadOnce({
-                                content_name: 'Nerul landing form (OTP success)',
-                                form_location: 'contact'
-                            });
-                            sendPartyWebhook(
-                                'contact',
-                                $('#form-contact-name').val(),
-                                $('#form-contact-email').val(),
-                                normalizeE164($('#form-contact-cc').val(), $('#form-contact-phone').val()),
-                                $('#form-contact-message').val()
-                            );
-                        } catch(e){}
-                        submitContactAjax();
-                    } else {
-                        // If server not configured for MSG91, optimistically proceed
-                        if (resp && typeof resp.error === 'string' && /Server not configured|MSG91_AUTHKEY/i.test(resp.error)) {
-                            try {
-                                trackGAGenerateLeadOnce({ form_location: 'contact' });
-                                trackAdsConversionOnce();
-                                trackLeadOnce({ content_name: 'Nerul landing form (OTP client success)', form_location: 'contact' });
-                                sendPartyWebhook(
-                                    'contact',
-                                    $('#form-contact-name').val(),
-                                    $('#form-contact-email').val(),
-                                    normalizeE164($('#form-contact-cc').val(), $('#form-contact-phone').val()),
-                                    $('#form-contact-message').val()
-                                );
-                            } catch(e){}
-                            submitContactAjax();
-                            return;
-                        }
-                        try {
-                            $('#formSubmitModal .modal-title').text('Verification failed');
-                            $('#formSubmitModal .modal-body').text('We could not verify your number. Please try again.');
-                            $('#formSubmitModal').modal('show');
-                        } catch(e){}
-                        $('#form-contact-submit').prop('disabled', false);
-                    }
-                }).fail(function(xhr){
-                    try { console.error('[otp][contact] verify_otp failed', xhr && xhr.status, xhr && xhr.responseText); } catch(e){}
-                    // If server not configured for MSG91, optimistically proceed
-                    try {
-                        var rt = (xhr && xhr.responseText) || '';
-                        if (xhr && xhr.status === 500 && /Server not configured|MSG91_AUTHKEY/i.test(rt)) {
-                            trackGAGenerateLeadOnce({ form_location: 'contact' });
-                            trackAdsConversionOnce();
-                            trackLeadOnce({ content_name: 'Nerul landing form (OTP client success)', form_location: 'contact' });
-                            sendPartyWebhook(
-                                'contact',
-                                $('#form-contact-name').val(),
-                                $('#form-contact-email').val(),
-                                normalizeE164($('#form-contact-cc').val(), $('#form-contact-phone').val()),
-                                $('#form-contact-message').val()
-                            );
-                            submitContactAjax();
-                            return;
-                        }
-                    } catch(e){}
-                    try {
-                        $('#formSubmitModal .modal-title').text('Verification error');
-                        $('#formSubmitModal .modal-body').text('A server error occurred. Please try again.');
-                        $('#formSubmitModal').modal('show');
-                    } catch(e){}
-                    $('#form-contact-submit').prop('disabled', false);
-                });
-            },
-            failure: function(){
-                lpEvent('otp_failed', lpErrorText(arguments[0]), 'contact');
-                try { console.warn('[otp][contact] failure callback'); } catch(e){}
-                try {
-                    $('#formSubmitModal .modal-title').text('Verification failed');
-                    $('#formSubmitModal .modal-body').text('We could not verify your number. Please try again.');
-                    $('#formSubmitModal').modal('show');
-                } catch(e){}
-                $('#form-contact-submit').prop('disabled', false);
-            }
-        };
-        ensureMsg91Loaded(function(){ try { console.log('[otp][contact] calling initSendOTP', { identifier: configuration.identifier, exposeMethods: configuration.exposeMethods }); window.initSendOTP(configuration); lpEvent('otp_ready', '', 'contact'); } catch(e){ $('#form-contact-submit').prop('disabled', false); }}, function(){ try { $('#formSubmitModal .modal-title').text('Verification unavailable'); $('#formSubmitModal .modal-body').text('OTP service is unavailable. Please try again later.'); $('#formSubmitModal').modal('show'); } catch(_){} $('#form-contact-submit').prop('disabled', false); });
-    }
-
-    $contactForm.on('submit', function(e){
-        e.preventDefault();
-        var e164 = normalizeE164($('#form-contact-cc').val(), $('#form-contact-phone').val());
-        $('#form-contact-submit').prop('disabled', true);
-        logSubmitAttempt('contact', $('#form-contact-name').val(), $('#form-contact-email').val(), e164, $('#form-contact-message').val());
-        startOtpVerificationContact(e164);
-    });
 });
 
 // Defer-load modal gallery slides on first open (responsive, folder-based with explicit filenames)
