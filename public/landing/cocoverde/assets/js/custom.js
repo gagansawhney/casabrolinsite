@@ -599,12 +599,22 @@ function getScrollBarWidth () {
 function ensureMsg91Loaded(callback, onError){
     lpEvent('otp_loading');
     if (window.initSendOTP) { callback(); return; }
-    var s = document.createElement('script');
-    s.type = 'text/javascript';
-    s.onload = callback;
-    s.onerror = function(){ lpEvent('otp_load_failed'); if (onError) onError(); };
-    s.src = 'https://verify.msg91.com/otp-provider.js';
-    document.body.appendChild(s);
+    // The SMS script occasionally fails to load inside Instagram's browser (16 Oct 2026), so try
+    // once more before telling the visitor verification is unavailable.
+    var attempt = 0;
+    (function load(){
+        attempt += 1;
+        var s = document.createElement('script');
+        s.type = 'text/javascript';
+        s.onload = function(){ if (attempt > 1) lpEvent('otp_load_retried'); callback(); };
+        s.onerror = function(){
+            if (s.parentNode) s.parentNode.removeChild(s);
+            if (attempt < 2) { setTimeout(load, 1500); return; }
+            lpEvent('otp_load_failed', 'script'); if (onError) onError();
+        };
+        s.src = 'https://verify.msg91.com/otp-provider.js' + (attempt > 1 ? '?r=' + Date.now() : '');
+        document.body.appendChild(s);
+    })();
 }
 
 // SMS code step. MSG91 runs in "exposeMethods" mode and the code box is our own (#lp-otp), because:
