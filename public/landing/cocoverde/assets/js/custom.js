@@ -690,6 +690,8 @@ function lpOtpBox(){
                 '<button type="button" class="lp-otp__x" aria-label="Close"></button>' +
                 '<h3 id="lp-otp-title" class="lp-otp__title">Verify your number</h3>' +
                 '<p class="lp-otp__to"></p>' +
+                // Reassurance: since Oct 16 most people who closed this box did so within seconds.
+                '<p class="lp-otp__trust">The code just confirms it\'s you. We never share your number.</p>' +
                 '<input id="lp-otp-code" class="lp-otp__code" type="text" inputmode="numeric" autocomplete="one-time-code"' +
                     ' pattern="[0-9]*" maxlength="4" placeholder="4-digit code" aria-label="4-digit code">' +
                 '<p class="lp-otp__msg" aria-live="polite"></p>' +
